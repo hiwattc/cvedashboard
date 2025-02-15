@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>NVD Vulnerability Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.0/dist/echarts.min.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 20px;
+        }
+        .calendar-container {
+            width: 90%;
+            height: 280px;
+            margin: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        .legend {
+            display: flex;
+            gap: 15px;
+            margin: 10px 0;
+            justify-content: center;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .color-box {
+            width: 15px;
+            height: 15px;
+            border: 1px solid #ccc;
+        }
+        .critical { background-color: #a00; }
+        .high { background-color: #e70; }
+        .medium { background-color: #fc0; }
+        .low { background-color: #7c7; }
+    </style>
+</head>
+<body>
+    <h2>Apache Vulnerabilities</h2>
+
+    <div th:if="${error}" class="error" th:text="${error}"></div>
+
+    <div class="legend">
+        <div class="legend-item">
+            <div class="color-box critical"></div>
+            <span>Critical (9.0-10.0)</span>
+        </div>
+        <div class="legend-item">
+            <div class="color-box high"></div>
+            <span>High (7.0-8.9)</span>
+        </div>
+        <div class="legend-item">
+            <div class="color-box medium"></div>
+            <span>Medium (4.0-6.9)</span>
+        </div>
+        <div class="legend-item">
+            <div class="color-box low"></div>
+            <span>Low (0.1-3.9)</span>
+        </div>
+    </div>
+
+    <div class="calendar-container" id="calendar"></div>
+    
+    <script th:inline="javascript">
+        var vulnerabilityData = [[${vulnerabilityData}]];
+
+        /*
+        vulnerabilityData = [
+            ["2024-12-01", 1], ['2024-12-02', 3], ['2024-12-24', 3],
+            ['2025-01-04', 5], ['2025-01-05', 1], ['2025-01-06', 2],
+            ['2025-01-07', 4], ['2025-01-08', 4], ['2025-01-09', 3],
+            ['2025-01-10', 160], ['2025-01-11', 170], ['2025-01-12', 180],
+            // Add more dates here
+        ];
+        var vulnerabilityData = [
+            ["2024-12-20",1,9.8,["CVE-2024-56337"]],
+            ["2024-11-18",3,9.8,["CVE-2024-52316","CVE-2024-52317","CVE-2024-52318"]],
+            ["2024-12-17",2,9.8,["CVE-2024-50379","CVE-2024-54677"]]
+        ];
+
+        var vulnerabilityData = [
+            ['2024-12-20',1,9.8,['a','b']],
+            ['2024-11-18',3,9.8,[]],
+            ['2024-12-17',2,9.8,['a','b']]
+        ];
+        */
+
+        //vulnerabilityData = [[${vulnerabilityData}]];
+
+        var maxCount = [[${maxCount}]];
+        var maxCvss = [[${maxCvss}]];
+        //maxCount = 10;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            var calendarEl = document.getElementById('calendar');
+            var calendarChart = echarts.init(calendarEl);
+            
+            // Calculate date range (1 year)
+            var endDate = new Date();
+            var startDate = new Date();
+            startDate.setFullYear(startDate.getFullYear() - 1);
+            
+            var formattedStartDate = [
+                startDate.getFullYear(),
+                (startDate.getMonth() + 1).toString().padStart(2, '0'),
+                startDate.getDate().toString().padStart(2, '0')
+            ].join('-');
+            
+            var formattedEndDate = [
+                endDate.getFullYear(),
+                (endDate.getMonth() + 1).toString().padStart(2, '0'),
+                endDate.getDate().toString().padStart(2, '0')
+            ].join('-');
+            
+            // Debug: Log the data to console
+            console.log("Calendar data:", vulnerabilityData);
+            console.log("Max count:", maxCount);
+            console.log("formattedStartDate:", formattedStartDate);
+            console.log("formattedEndDate:", formattedEndDate);
+            
+            var option = {
+                tooltip: {
+                    formatter: function (params) {
+                        //return params.value[0] + '<br/>'  + (params.value[1] ? 'Max CVSS: ' + params.value[1].toFixed(1) + '<br/>' : '') + params.value[2] + ' vulnerabilities<br/>' ;
+                        return params.value[0] + '<br/>'  + (params.value[1] ? 'Max CVSS: ' + params.value[1].toFixed(1) + '<br/>' : '') ;
+                    }
+                },
+                visualMap: {
+                    min: 0,
+                    max: maxCvss > 0 ? maxCvss : 10, 
+                    calculable: true,
+                    orient: 'horizontal',
+                    left: 'center',
+                    top: 'top',
+                    inRange: {
+                        //color: ['#ebedf0', '#7bc96f', '#c6e48b', '#7cc677', '#239a3b', '#196127']
+                        color: ['#c2f0e1', '#77ed9e', '#f0af7a', '#cc0000', '#de2635']
+
+                    }
+                },
+                calendar: {
+                    top: 60,
+                    left: 40,
+                    right: 40,
+                    cellSize: ['auto', 20],
+                    range: [formattedStartDate, formattedEndDate],
+                    itemStyle: {
+                        borderWidth: 0.5
+                    },
+                    yearLabel: { show: true }
+                },
+                series: {
+                    type: 'heatmap',
+                    coordinateSystem: 'calendar',
+                    calendarIndex: 0,
+                    data: vulnerabilityData
+                }
+            };
+            
+            calendarChart.setOption(option);
+            
+            // Handle window resize
+            window.addEventListener('resize', function() {
+                calendarChart.resize();
+            });
+        });
+    </script>
+
+    <h3>Vulnerability Details</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>CVE ID</th>
+                <th>Description</th>
+                <th>Published Date</th>
+                <th>CVSS Score</th>
+                <th>Severity</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="vuln : ${vulnerabilities}">
+                <td><a th:href="@{'https://nvd.nist.gov/vuln/detail/' + ${vuln.id}}" th:text="${vuln.id}" target="_blank"></a></td>
+                <td th:text="${vuln.description}"></td>
+                <td th:text="${vuln.published}"></td>
+                <td th:text="${#numbers.formatDecimal(vuln.cvssScore, 1, 1)}"></td>
+                <td>
+                    <span th:if="${vuln.cvssScore >= 9.0}" style="color: #a00; font-weight: bold;">Critical</span>
+                    <span th:if="${vuln.cvssScore >= 7.0 && vuln.cvssScore < 9.0}" style="color: #e70; font-weight: bold;">High</span>
+                    <span th:if="${vuln.cvssScore >= 4.0 && vuln.cvssScore < 7.0}" style="color: #fc0; font-weight: bold;">Medium</span>
+                    <span th:if="${vuln.cvssScore < 4.0 && vuln.cvssScore > 0}" style="color: #7c7; font-weight: bold;">Low</span>
+                    <span th:if="${vuln.cvssScore == 0}" style="color: #999;">Unknown</span>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>
