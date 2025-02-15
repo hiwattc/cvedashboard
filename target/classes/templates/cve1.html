@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CVE 취약점 정보 수집기 - Apache Tomcat</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background-color: white;
+      padding: 20px;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #2c3e50;
+      text-align: center;
+    }
+    .controls {
+      margin: 20px 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+    button {
+      padding: 8px 16px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    button:disabled {
+      background-color: #bdc3c7;
+      cursor: not-allowed;
+    }
+    input[type="number"] {
+      width: 60px;
+      padding: 6px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .loading {
+      text-align: center;
+      margin: 20px 0;
+      display: none;
+    }
+    .error {
+      color: #e74c3c;
+      margin: 10px 0;
+      padding: 10px;
+      background-color: #fadbd8;
+      border-radius: 4px;
+      display: none;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+      position: sticky;
+      top: 0;
+    }
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+    tr:hover {
+      background-color: #f1f1f1;
+    }
+    .severity-high {
+      background-color: #ffdddd;
+    }
+    .severity-medium {
+      background-color: #ffffdd;
+    }
+    .severity-low {
+      background-color: #ddffdd;
+    }
+    .cve-link {
+      color: #3498db;
+      text-decoration: none;
+    }
+    .cve-link:hover {
+      text-decoration: underline;
+    }
+    .pagination {
+      display: flex;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .pagination button {
+      margin: 0 5px;
+    }
+    .summary {
+      margin: 20px 0;
+      padding: 15px;
+      background-color: #e8f7ff;
+      border-radius: 4px;
+    }
+    #downloadBtn {
+      background-color: #27ae60;
+    }
+    #downloadBtn:hover {
+      background-color: #2ecc71;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>CVE 취약점 정보 수집기 - Apache Tomcat</h1>
+    
+    <div class="controls">
+      <label for="pageNumber">페이지 번호:</label>
+      <input type="number" id="pageNumber" min="1" value="9">
+      
+      <button id="fetchBtn">데이터 가져오기</button>
+      <button id="downloadBtn">CSV 다운로드</button>
+    </div>
+    
+    <div class="loading" id="loadingIndicator">
+      <p>데이터를 가져오는 중입니다...</p>
+    </div>
+    
+    <div class="error" id="errorMessage"></div>
+    
+    <div class="summary" id="summary"></div>
+    
+    <table id="vulnerabilityTable">
+      <thead>
+        <tr>
+          <th>CVE ID</th>
+          <th>취약점 유형</th>
+          <th>발표 날짜</th>
+          <th>업데이트 날짜</th>
+          <th>점수</th>
+          <th>심각도</th>
+          <th>액세스</th>
+          <th>상세 정보</th>
+        </tr>
+      </thead>
+      <tbody id="vulnerabilityData">
+        <!-- 데이터가 여기에 추가됩니다 -->
+      </tbody>
+    </table>
+    
+    <div class="pagination" id="pagination">
+      <button id="prevPage">이전</button>
+      <span id="currentPage">9 / ?</span>
+      <button id="nextPage">다음</button>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const pageNumberInput = document.getElementById('pageNumber');
+      const fetchBtn = document.getElementById('fetchBtn');
+      const downloadBtn = document.getElementById('downloadBtn');
+      const loadingIndicator = document.getElementById('loadingIndicator');
+      const errorMessage = document.getElementById('errorMessage');
+      const vulnerabilityData = document.getElementById('vulnerabilityData');
+      const summary = document.getElementById('summary');
+      const prevPageBtn = document.getElementById('prevPage');
+      const nextPageBtn = document.getElementById('nextPage');
+      const currentPageElement = document.getElementById('currentPage');
+      
+      let vulnerabilities = [];
+      let currentPage = 9;
+      let totalPages = 0;
+      
+      // 페이지 로드시 초기 데이터 가져오기
+      fetchVulnerabilities(currentPage);
+      
+      fetchBtn.addEventListener('click', function() {
+        currentPage = parseInt(pageNumberInput.value) || 1;
+        fetchVulnerabilities(currentPage);
+      });
+      
+      prevPageBtn.addEventListener('click', function() {
+        if (currentPage > 1) {
+          currentPage--;
+          pageNumberInput.value = currentPage;
+          fetchVulnerabilities(currentPage);
+        }
+      });
+      
+      nextPageBtn.addEventListener('click', function() {
+        if (currentPage < totalPages) {
+          currentPage++;
+          pageNumberInput.value = currentPage;
+          fetchVulnerabilities(currentPage);
+        }
+      });
+      
+      downloadBtn.addEventListener('click', function() {
+        downloadCSV();
+      });
+      
+      function fetchVulnerabilities(page) {
+        vulnerabilityData.innerHTML = '';
+        loadingIndicator.style.display = 'block';
+        errorMessage.style.display = 'none';
+        errorMessage.textContent = '';
+        
+        // 백엔드 API로 요청
+        const apiUrl = `/api/cve-data?page=${page}`;
+        
+        fetch(apiUrl)
+          .then(response => {
+            if (!response.ok) {
+              throw new Error('네트워크 응답이 올바르지 않습니다 (상태 코드: ' + response.status + ')');
+            }
+            return response.text();
+          })
+          .then(html => {
+            parseVulnerabilities(html);
+            updatePagination(html);
+          })
+          .catch(error => {
+            showError(`데이터를 가져오는 중 오류가 발생했습니다: ${error.message}`);
+            console.error('Error:', error);
+            
+            // 예시 데이터로 대체
+            loadExampleData();
+          })
+          .finally(() => {
+            loadingIndicator.style.display = 'none';
+          });
+      }
+      
+      function parseVulnerabilities(html) {
+        vulnerabilities = [];
+        
+        // HTML 파싱
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        //const rows = doc.querySelectorAll('table.searchresults tr.srrowns');
+        const rows = doc.querySelectorAll('[data-tsvfield="cveinfo"]');
+        
+        rows.forEach(row => {
+            
+            const cveId = row.querySelector('h3[data-tsvfield="cveId"] a')?.textContent.trim() || 'N/A';
+            const cveLink = row.querySelector('h3[data-tsvfield="cveId"] a')?.getAttribute('href') || 'N/A';
+            const vulnType = row.querySelector('[data-tsvfield="vulnType"]')?.textContent.trim() || 'N/A';
+            const publishDate = row.querySelector('[data-tsvfield="publishDate"]')?.textContent.trim() || 'N/A';
+            const updateDate = row.querySelector('[data-tsvfield="lastModifiedDate"]')?.textContent.trim() || 'N/A';
+            const score = row.querySelector('[data-tsvfield="maxCvssBaseScore"] .cvssbox')?.textContent.trim() || 'N/A';
+            const severity = row.querySelector('[data-tsvfield="severity"]')?.textContent.trim() || 'N/A';
+            const accessVector = row.querySelector('[data-tsvfield="accessVector"]')?.textContent.trim() || 'N/A';
+            
+            // cveLink를 절대 URL로 변환 (상대 경로일 경우)
+            const absoluteCveLink = cveLink.startsWith('http') 
+              ? cveLink 
+              : 'https://www.cvedetails.com' + (cveLink.startsWith('/') ? '' : '/') + cveLink;
+            
+            vulnerabilities.push({
+              cveId,
+              cveLink: absoluteCveLink,
+              vulnType,
+              publishDate,
+              updateDate,
+              score,
+              severity,
+              accessVector
+            });
+          
+        });
+        
+        // 결과가 없으면 예시 데이터 사용
+        if (vulnerabilities.length === 0) {
+          showError('페이지에서 취약점 데이터를 찾을 수 없습니다. 예시 데이터를 표시합니다.');
+          loadExampleData();
+        } else {
+          displayVulnerabilities();
+          updateSummary();
+        }
+      }
+      
+      function getSeverity(score) {
+        if (score >= 7) return 'HIGH';
+        if (score >= 4) return 'MEDIUM';
+        return 'LOW';
+      }
+      
+      function getSeverityClass(severity) {
+        switch (severity) {
+          case 'HIGH': return 'severity-high';
+          case 'MEDIUM': return 'severity-medium';
+          case 'LOW': return 'severity-low';
+          default: return '';
+        }
+      }
+      
+      function displayVulnerabilities() {
+        vulnerabilityData.innerHTML = '';
+        
+        vulnerabilities.forEach(vuln => {
+          const row = document.createElement('tr');
+          //row.classList.add(getSeverityClass(vuln.severity));
+          
+          row.innerHTML = `
+            <td><a href="${vuln.cveLink}" class="cve-link" target="_blank">${vuln.cveId}</a></td>
+            <td>${vuln.vulnType}</td>
+            <td>${vuln.publishDate}</td>
+            <td>${vuln.updateDate}</td>
+            <td>${vuln.score}</td>
+            <td>${vuln.severity}</td>
+            <td>${vuln.accessVector}</td>
+            <td><a href="${vuln.cveLink}" class="cve-link" target="_blank">상세 보기</a></td>
+          `;
+          
+          vulnerabilityData.appendChild(row);
+        });
+      }
+      
+      function updateSummary() {
+        const total = vulnerabilities.length;
+        const highCount = vulnerabilities.filter(v => v.severity === 'HIGH').length;
+        const mediumCount = vulnerabilities.filter(v => v.severity === 'MEDIUM').length;
+        const lowCount = vulnerabilities.filter(v => v.severity === 'LOW').length;
+        
+        summary.innerHTML = `
+          <h3>요약 정보</h3>
+          <p>현재 페이지에서 총 ${total}개의 취약점이 발견되었습니다.</p>
+          <p>심각도 분포: 높음 ${highCount}개, 중간 ${mediumCount}개, 낮음 ${lowCount}개</p>
+        `;
+      }
+      
+      function updatePagination(html) {
+        // HTML에서 총 페이지 수를 추출
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const paginationText = doc.querySelector('.paging')?.textContent;
+        
+        if (paginationText) {
+          const match = paginationText.match(/Page \d+ of (\d+)/);
+          if (match && match[1]) {
+            totalPages = parseInt(match[1]);
+          }
+        } else {
+          // 페이지 정보를 찾지 못한 경우 기본값 설정
+          totalPages = Math.max(totalPages, currentPage);
+        }
+        
+        currentPageElement.textContent = `${currentPage} / ${totalPages || '?'}`;
+        prevPageBtn.disabled = currentPage <= 1;
+        nextPageBtn.disabled = currentPage >= totalPages;
+      }
+      
+      function downloadCSV() {
+        if (vulnerabilities.length === 0) {
+          showError('다운로드할 데이터가 없습니다');
+          return;
+        }
+        
+        const headers = ['CVE ID', '취약점 유형', '발표 날짜', '업데이트 날짜', '점수', '심각도', '액세스', 'URL'];
+        const csvRows = [];
+        
+        // 헤더 추가
+        csvRows.push(headers.join(','));
+        
+        // 데이터 행 추가
+        vulnerabilities.forEach(vuln => {
+          const values = [
+            `"${vuln.cveId}"`,
+            `"${vuln.vulnType}"`,
+            `"${vuln.publishDate}"`,
+            `"${vuln.updateDate}"`,
+            `"${vuln.score}"`,
+            `"${vuln.severity}"`,
+            `"${vuln.accessVector}"`,
+            `"${vuln.cveLink}"`
+          ];
+          csvRows.push(values.join(','));
+        });
+        
+        // CSV 생성
+        const csvString = csvRows.join('\n');
+        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        
+        // 다운로드 링크 생성 및 클릭
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `apache-tomcat-vulnerabilities-page${currentPage}.csv`);
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+      
+      function showError(message) {
+        errorMessage.textContent = message;
+        errorMessage.style.display = 'block';
+      }
+      
+      // 예시 데이터 (API 호출 실패 시 테스트용)
+      function loadExampleData() {
+        vulnerabilities = [
+          {
+            cveId: 'CVE-2020-9484',
+            cveLink: 'https://www.cvedetails.com/cve/CVE-2020-9484/',
+            vulnType: 'Remote Code Execution',
+            publishDate: '2020-05-20',
+            updateDate: '2020-05-21',
+            score: '8.1',
+            severity: 'HIGH',
+            accessVector: 'Network'
+          },
+          {
+            cveId: 'CVE-2020-1935',
+            cveLink: 'https://www.cvedetails.com/cve/CVE-2020-1935/',
+            vulnType: 'Cross Site Scripting',
+            publishDate: '2020-02-24',
+            updateDate: '2020-02-25',
+            score: '6.1',
+            severity: 'MEDIUM',
+            accessVector: 'Network'
+          },
+          {
+            cveId: 'CVE-2019-17563',
+            cveLink: 'https://www.cvedetails.com/cve/CVE-2019-17563/',
+            vulnType: 'Gain Information',
+            publishDate: '2020-01-15',
+            updateDate: '2020-01-16',
+            score: '5.3',
+            severity: 'MEDIUM',
+            accessVector: 'Network'
+          },
+          {
+            cveId: 'CVE-2019-12418',
+            cveLink: 'https://www.cvedetails.com/cve/CVE-2019-12418/',
+            vulnType: 'Gain Privilege',
+            publishDate: '2019-11-14',
+            updateDate: '2019-11-20',
+            score: '7.5',
+            severity: 'HIGH',
+            accessVector: 'Network'
+          },
+          {
+            cveId: 'CVE-2019-10072',
+            cveLink: 'https://www.cvedetails.com/cve/CVE-2019-10072/',
+            vulnType: 'Cross Site Scripting',
+            publishDate: '2019-08-14',
+            updateDate: '2019-08-16',
+            score: '3.5',
+            severity: 'LOW',
+            accessVector: 'Network'
+          }
+        ];
+        
+        totalPages = 10; // 예시 데이터에서는 10페이지로 가정
+        displayVulnerabilities();
+        updateSummary();
+        currentPageElement.textContent = `${currentPage} / ${totalPages}`;
+        prevPageBtn.disabled = currentPage <= 1;
+        nextPageBtn.disabled = currentPage >= totalPages;
+      }
+    });
+  </script>
+</body>
+</html>
